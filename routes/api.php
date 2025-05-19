@@ -7,10 +7,14 @@ use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\Admin\AdminProductController;
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\PromotionController;
-use app\Http\Controllers\Admin\AdminOrderController;
+use App\Http\Controllers\Admin\AdminOrderController;
 use App\Http\Controllers\Admin\CategoryController;
+use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\ShippingController;
+
 
 
 // PUBLIC ROUTES
@@ -18,8 +22,6 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/send-otp', [AuthController::class, 'sendOtp']);
 Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
-Route::get('/auth/google', [AuthController::class, 'redirectToGoogle']);
-Route::get('/auth/google/callback', [AuthController::class, 'handleGoogleCallback']);
 
 // PROTECTED ROUTES
 Route::middleware('auth:sanctum')->group(function () {
@@ -49,13 +51,40 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/checkout', [OrderController::class, 'checkout']);
     Route::get('/orders', [OrderController::class, 'index']);
+    Route::put('/orders/{id}/status', [OrderController::class, 'updateStatus']);
+
 });
 
 //ADMIN ROUTES
-Route::middleware(['auth:sanctum', 'admin'])->group(function () {
-    Route::get('/admin/dashboard', [AdminController::class, 'dashboard']);
-    Route::apiResource('/admin/products', ProductController::class);
-    Route::apiResource('/admin/categories', CategoryController::class);
-    Route::apiResource('/admin/orders', AdminOrderController::class);
-    Route::post('/admin/promotions', [PromotionController::class, 'store']);
+Route::prefix('admin')->middleware('auth:sanctum')->group(function () {
+    Route::get('dashboard', [AdminController::class, 'dashboard']);
+    Route::get('orders', [AdminOrderController::class, 'index']);
+    Route::get('orders/status/{status}', [AdminOrderController::class, 'getByStatus']); // Tambahan
+    Route::post('orders/{id}/status', [AdminOrderController::class, 'updateStatus']);
+
+    // Route to generate invoice
+     Route::get('orders/{id}/invoice', [AdminOrderController::class, 'generateInvoice']);
+
+    Route::apiResource('products', AdminProductController::class);
+    Route::apiResource('categories', CategoryController::class);
+    Route::apiResource('promotions', PromotionController::class)->except(['update', 'show']);
 });
+
+// PAYMENT ROUTES
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/payment', [PaymentController::class, 'createPayment']);
+});
+Route::post('/midtrans/callback', [PaymentController::class, 'handleCallback']);
+
+// SHIPPING ROUTES
+Route::post('/calculate-ongkir', [ShippingController::class, 'calculateOngkir']);
+
+//Google Routes
+Route::post('/auth/google/token', [AuthController::class, 'loginWithGoogleToken']);
+
+
+
+
+
+
+

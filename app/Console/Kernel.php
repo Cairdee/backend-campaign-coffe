@@ -12,7 +12,8 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
+        // Jalankan setiap tanggal 1 dan 15 pukul 00:00
+        $schedule->command('orders:autodelete')->cron('0 0 1,15 * *');
     }
 
     /**
@@ -24,4 +25,11 @@ class Kernel extends ConsoleKernel
 
         require base_path('routes/console.php');
     }
+
+    /**
+     * Daftar semua custom commands.
+     */
+    protected $commands = [
+        \App\Console\Commands\AutoDeleteOldOrders::class,
+    ];
 }

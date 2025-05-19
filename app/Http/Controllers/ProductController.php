@@ -12,6 +12,7 @@ class ProductController extends Controller
     {
         $query = Product::with('category');
 
+
 if ($request->has('category')) {
     $query->whereHas('category', function ($q) use ($request) {
         $q->where('name', $request->category);
@@ -28,12 +29,12 @@ if ($request->has('category')) {
         });
     }
 
-    return $query->get();
+    return ProductResource::collection($query->get());
     }
 
     public function show($id)
     {
-        return Product::findOrFail($id);
+        return new ProductResource(Product::findOrFail($id));
     }
 
     public function store(Request $request)

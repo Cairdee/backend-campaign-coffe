@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Laravel\Socialite\Facades\Socialite;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Http;
 
 class AuthController extends Controller
 {
@@ -45,30 +46,36 @@ class AuthController extends Controller
     }
 
     public function login(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'email'    => 'required|email',
-            'password' => 'required|string',
-        ]);
+{
+    $validator = Validator::make($request->all(), [
+        'email'    => 'required|email',
+        'password' => 'required|string',
+    ]);
 
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-
-        $user = User::where('email', $request->email)->first();
-
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            return response()->json(['message' => 'Invalid credentials'], 401);
-        }
-
-        $token = $user->createToken('auth_token')->plainTextToken;
-
-        return response()->json([
-            'message' => 'Login successful',
-            'token'   => $token,
-            'user'    => $user,
-        ]);
+    if ($validator->fails()) {
+        return response()->json(['errors' => $validator->errors()], 422);
     }
+
+    $user = User::where('email', $request->email)->first();
+
+    // Tambahkan pengecekan akun Google
+    if ($user && $user->google_id && !$user->password) {
+        return response()->json(['message' => 'Please use Google login'], 403);
+    }
+
+    if (!$user || !Hash::check($request->password, $user->password)) {
+        return response()->json(['message' => 'Invalid credentials'], 401);
+    }
+
+    $token = $user->createToken('auth_token')->plainTextToken;
+
+    return response()->json([
+        'message' => 'Login successful',
+        'token'   => $token,
+        'user'    => $user,
+    ]);
+}
+
 
     public function sendOtp(Request $request)
     {
@@ -124,6 +131,9 @@ class AuthController extends Controller
         try {
             $googleUser = Socialite::driver('google')->stateless()->user();
 
+            Log::info('Google ID Token:', ['id_token' => $googleUser->id_token]);
+            Log::info('Access Token:', ['token' => $googleUser->token]);
+
             $user = User::updateOrCreate(
                 ['email' => $googleUser->getEmail()],
                 [
@@ -150,4 +160,50 @@ class AuthController extends Controller
             return response()->json(['message' => 'Google authentication failed', 'error' => $e->getMessage()], 500);
         }
     }
+public function loginWithGoogleToken(Request $request)
+{
+    $request->validate([
+        'token' => 'required|string',
+    ]);
+
+    try {
+        // Verifikasi token ke Google
+        $response = Http::get('https://oauth2.googleapis.com/tokeninfo', [
+            'id_token' => $request->token,
+        ]);
+
+        if ($response->failed()) {
+            return response()->json(['message' => 'Invalid Google token'], 401);
+        }
+
+        $googleUser = $response->json();
+
+        // Simpan atau update user
+        $user = User::updateOrCreate(
+            ['email' => $googleUser['email']],
+            [
+                'name'      => $googleUser['name'] ?? 'Unknown',
+                'google_id' => $googleUser['sub'],
+                'avatar'    => $googleUser['picture'] ?? null,
+                'password'  => Hash::make(Str::random(24)),
+            ]
+        );
+
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        return response()->json([
+            'message' => 'Google login successful',
+            'token'   => $token,
+            'user'    => $user,
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Google Token Login Error', [
+            'message' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        return response()->json(['message' => 'Google authentication failed', 'error' => $e->getMessage()], 500);
+    }
+}
+
 }

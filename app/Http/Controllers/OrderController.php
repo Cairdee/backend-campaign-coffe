@@ -61,4 +61,29 @@ class OrderController extends Controller
 
         return response()->json($orders);
     }
+
+    public function updateStatus(Request $request, $id)
+{
+    $request->validate([
+        'status' => 'required|string|in:' . implode(',', [
+            Order::STATUS_PENDING,
+            Order::STATUS_SENDING,
+            Order::STATUS_COMPLETED,
+            Order::STATUS_CANCELLED,
+        ])
+    ]);
+
+    $order = Order::findOrFail($id);
+
+    // Cek apakah order milik user yang sedang login
+    if ($order->user_id !== $request->user()->id) {
+        return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    $order->status = $request->status;
+    $order->save();
+
+    return response()->json(['message' => 'Order status updated', 'order' => $order]);
+}
+
 }

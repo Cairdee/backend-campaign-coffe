@@ -4,10 +4,19 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Order extends Model
 {
-    protected $fillable = ['user_id', 'total_price'];
+    use HasFactory, SoftDeletes;
+
+    const STATUS_PENDING = 'pending';
+    const STATUS_SENDING = 'sending';
+    const STATUS_COMPLETED = 'completed';
+    const STATUS_CANCELLED = 'cancelled';
+
+
+    protected $fillable = ['user_id', 'total_price', 'status'];
 
     public function items()
     {

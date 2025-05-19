@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use Illuminate\Http\Request;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class AdminOrderController extends Controller
 {
@@ -19,5 +20,21 @@ class AdminOrderController extends Controller
 
         return response()->json(['message' => 'Order status updated', 'order' => $order]);
     }
+
+    public function getByStatus($status)
+{
+    $orders = Order::where('status', $status)->with('user')->latest()->get();
+    return response()->json($orders);
+}
+
+    public function generateInvoice($id)
+{
+    $order = Order::with('user', 'items.product')->findOrFail($id); // pastikan relasi 'items' dan 'product' ada
+    $pdf = Pdf::loadView('admin.invoice', compact('order'));
+
+    return $pdf->stream('invoice_order_' . $order->id . '.pdf'); // untuk preview
+    // return $pdf->download('invoice_order_' . $order->id . '.pdf'); // untuk download langsung
+}
+
 }
 
