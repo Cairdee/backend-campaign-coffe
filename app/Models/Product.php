@@ -16,7 +16,9 @@ class Product extends Model
         'image',
         'description',
         'rating',
-        'review_count'
+        'review_count',
+        'sugar',
+        'temperature',
     ];
 
     public function category()

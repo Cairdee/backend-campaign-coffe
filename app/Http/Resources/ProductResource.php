@@ -22,9 +22,10 @@ class ProductResource extends JsonResource
         'description' => $this->description,
         'rating' => $this->rating,
         'review_count' => $this->review_count,
-        'image' => $this->image
-            ? url('storage/images/menu' . basename($this->image))
-            : null,
+        'image' => $this->product && $this->product->image
+    ? url('storage/images/menu/' . basename($this->product->image))
+    : null,
+
     ];
 }
 
