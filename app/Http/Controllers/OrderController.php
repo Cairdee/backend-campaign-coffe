@@ -6,6 +6,9 @@ use Illuminate\Http\Request;
 use App\Models\Cart;
 use App\Models\Order;
 use App\Models\OrderItem;
+use Midtrans\Snap;
+use Midtrans\Config;
+use App\Notifications\OrderStatusUpdated;
 
 class OrderController extends Controller
 {
@@ -32,6 +35,7 @@ class OrderController extends Controller
         $order = Order::create([
             'user_id' => $user->id,
             'total_price' => $total,
+            'status' => Order::STATUS_PENDING,
         ]);
 
         // Simpan order items
@@ -47,9 +51,32 @@ class OrderController extends Controller
         // Kosongkan cart
         Cart::where('user_id', $user->id)->delete();
 
+        // Konfigurasi Midtrans
+        Config::$serverKey = 'YOUR_MIDTRANS_SERVER_KEY';
+        Config::$isProduction = false;
+        Config::$isSanitized = true;
+        Config::$is3ds = true;
+
+        $midtransOrderId = $order->id . '-' . uniqid();
+
+        $transaction = [
+            'transaction_details' => [
+                'order_id' => $midtransOrderId,
+                'gross_amount' => $total,
+            ],
+            'customer_details' => [
+                'first_name' => $user->name,
+                'email' => $user->email,
+            ],
+        ];
+
+        // Buat transaksi Midtrans
+        $snap = Snap::createTransaction($transaction);
+
         return response()->json([
             'message' => 'Checkout berhasil',
             'order_id' => $order->id,
+            'snap_url' => $snap->redirect_url,
             'total' => $total,
         ]);
     }
@@ -64,7 +91,8 @@ class OrderController extends Controller
 
     public function updateStatus(Request $request, $id)
 {
-    $request->validate([
+    // 1. Validasi status
+    $validated = $request->validate([
         'status' => 'required|string|in:' . implode(',', [
             Order::STATUS_PENDING,
             Order::STATUS_SENDING,
@@ -73,17 +101,22 @@ class OrderController extends Controller
         ])
     ]);
 
+    // 2. Ambil order
     $order = Order::findOrFail($id);
 
-    // Cek apakah order milik user yang sedang login
+    // 3. Cek apakah order milik user ini
     if ($order->user_id !== $request->user()->id) {
         return response()->json(['message' => 'Unauthorized'], 403);
     }
 
-    $order->status = $request->status;
+    // 4. Update status
+    $order->status = $validated['status'];
     $order->save();
 
+    // 5. Kirim notifikasi
+    $order->user->notify(new OrderStatusUpdated($order));
+
+    // 6. Return response
     return response()->json(['message' => 'Order status updated', 'order' => $order]);
 }
-
 }

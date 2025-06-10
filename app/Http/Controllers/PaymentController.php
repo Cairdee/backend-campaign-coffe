@@ -20,28 +20,40 @@ class PaymentController extends Controller
 
     // 1. Generate Snap Token
     public function createPayment(Request $request)
-    {
-        $order = Order::with('user')->findOrFail($request->order_id);
+{
+    $validated = $request->validate([
+        'order_id' => 'required|exists:orders,id',
+    ]);
 
-        if ($order->user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
+    $order = Order::with('user')->findOrFail($validated['order_id']);
 
-        $params = [
-            'transaction_details' => [
-                'order_id' => 'ORDER-' . $order->id . '-' . time(),
-                'gross_amount' => $order->total_price,
-            ],
-            'customer_details' => [
-                'first_name' => $order->user->name,
-                'email' => $order->user->email,
-            ]
-        ];
-
-        $snapToken = Snap::getSnapToken($params);
-
-        return response()->json(['snap_token' => $snapToken]);
+    if ($order->user_id !== $request->user()->id) {
+        return response()->json(['message' => 'Unauthorized'], 403);
     }
+
+    // Cek apakah sudah ada midtrans_order_id, kalau belum buat dan simpan
+    if (!$order->midtrans_order_id) {
+        $order->midtrans_order_id = 'ORDER-' . $order->id . '-' . time();
+        $order->save();
+    }
+
+    $params = [
+        'transaction_details' => [
+            'order_id' => $order->midtrans_order_id,
+            'gross_amount' => $order->total_price,
+        ],
+        'customer_details' => [
+            'first_name' => $order->user->name,
+            'email' => $order->user->email,
+        ]
+    ];
+
+    $snapToken = Snap::getSnapToken($params);
+
+    return response()->json(['snap_token' => $snapToken]);
+}
+
+
 
     // 2. Handle Callback
     public function handleCallback(Request $request)

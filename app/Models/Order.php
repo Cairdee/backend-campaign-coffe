@@ -16,7 +16,7 @@ class Order extends Model
     const STATUS_CANCELLED = 'cancelled';
 
 
-    protected $fillable = ['user_id', 'total_price', 'status'];
+    protected $fillable = ['user_id', 'product_id', 'quantity', 'total_price', 'status', 'address', 'notes', 'order_type'];
 
     public function items()
     {
@@ -26,5 +26,8 @@ class Order extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+    public function product() {
+        return $this->belongsTo(Product::class);
     }
 }

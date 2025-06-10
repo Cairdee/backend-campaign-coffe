@@ -14,14 +14,14 @@ use App\Http\Controllers\Admin\AdminOrderController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ShippingController;
-
-
+use App\Http\Controllers\NotificationController;
 
 // PUBLIC ROUTES
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/send-otp', [AuthController::class, 'sendOtp']);
 Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
+Route::post('/auth/google/token', [AuthController::class, 'loginWithGoogleToken']);
 
 // PROTECTED ROUTES
 Route::middleware('auth:sanctum')->group(function () {
@@ -31,60 +31,57 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::post('/logout', [AuthController::class, 'logout']);
-});
 
-//PRODUCT ROUTES
-Route::get('/products', [ProductController::class, 'index']);
-Route::get('/products/{id}', [ProductController::class, 'show']);
-Route::post('/products', [ProductController::class, 'store']);
-Route::put('/products/{id}', [ProductController::class, 'update']);
-Route::delete('/products/{id}', [ProductController::class, 'destroy']);
-
-//CART ROUTES
-Route::middleware('auth:sanctum')->group(function () {
+    // CART ROUTES
     Route::get('/cart', [CartController::class, 'index']);
     Route::post('/cart', [CartController::class, 'store']);
     Route::delete('/cart/{id}', [CartController::class, 'destroy']);
-});
 
-//ORDER ROUTES
-Route::middleware('auth:sanctum')->group(function () {
+    // ORDER ROUTES
     Route::post('/checkout', [OrderController::class, 'checkout']);
     Route::get('/orders', [OrderController::class, 'index']);
     Route::put('/orders/{id}/status', [OrderController::class, 'updateStatus']);
 
+    // PAYMENT ROUTES
+    Route::post('/payment', [PaymentController::class, 'createPayment']);
 });
 
-//ADMIN ROUTES
+// MIDTRANS CALLBACK
+Route::post('/midtrans/callback', [PaymentController::class, 'handleCallback']);
+
+// SHIPPING
+Route::post('/calculate-ongkir', [ShippingController::class, 'calculateOngkir']);
+
+// ADMIN
 Route::prefix('admin')->middleware('auth:sanctum')->group(function () {
     Route::get('dashboard', [AdminController::class, 'dashboard']);
-    Route::get('orders', [AdminOrderController::class, 'index']);
-    Route::get('orders/status/{status}', [AdminOrderController::class, 'getByStatus']); // Tambahan
-    Route::post('orders/{id}/status', [AdminOrderController::class, 'updateStatus']);
+     Route::get('orders', [AdminOrderController::class, 'index']);
+    Route::get('orders/completed', [AdminOrderController::class, 'completedOrders']);
+    Route::get('orders/status/{status}', [AdminOrderController::class, 'filterByStatus']);
+    Route::get('orders/{id}', [AdminOrderController::class, 'show']);
+    Route::put('orders/{id}/status', [AdminOrderController::class, 'updateStatus']);
+    Route::delete('orders/{id}', [AdminOrderController::class, 'destroy']);
+    Route::put('orders/{id}/restore', [AdminOrderController::class, 'restore']);
+    Route::delete('orders/{id}/force', [AdminOrderController::class, 'forceDelete']);
+    Route::get('orders/{id}/invoice', [AdminOrderController::class, 'generateInvoice']);
+    Route::get('/earnings', [AdminController::class, 'earnings']);
+    Route::get('/history', [AdminController::class, 'orderHistory']);
+    Route::get('pickup-orders/pending', [AdminOrderController::class, 'pickupList']);
+    Route::get('pickup-orders/in-progress', [AdminOrderController::class, 'pickupInProgress']);
+    Route::get('pickup-orders/completed', [AdminOrderController::class, 'pickupCompleted']);
 
-    // Route to generate invoice
-     Route::get('orders/{id}/invoice', [AdminOrderController::class, 'generateInvoice']);
 
     Route::apiResource('products', AdminProductController::class);
     Route::apiResource('categories', CategoryController::class);
     Route::apiResource('promotions', PromotionController::class)->except(['update', 'show']);
+
+    Route::get('/products', [ProductController::class, 'index']);
+    Route::get('/products/{id}', [ProductController::class, 'show']);
+    Route::post('/products', [ProductController::class, 'store']);
+    Route::put('/products/{id}', [ProductController::class, 'update']);
+    Route::delete('/products/{id}', [ProductController::class, 'destroy']);
 });
 
-// PAYMENT ROUTES
-Route::middleware('auth:sanctum')->group(function () {
-    Route::post('/payment', [PaymentController::class, 'createPayment']);
-});
-Route::post('/midtrans/callback', [PaymentController::class, 'handleCallback']);
-
-// SHIPPING ROUTES
-Route::post('/calculate-ongkir', [ShippingController::class, 'calculateOngkir']);
-
-//Google Routes
-Route::post('/auth/google/token', [AuthController::class, 'loginWithGoogleToken']);
-
-
-
-
-
-
+//NOTIFICATIONS
+Route::middleware('auth:sanctum')->get('/notifications', [NotificationController::class, 'index']);
 
