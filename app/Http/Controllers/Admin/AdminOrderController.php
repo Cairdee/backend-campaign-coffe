@@ -6,27 +6,34 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Http\Traits\ResponseApi;
 
 class AdminOrderController extends Controller
 {
-     // 1. Semua Pesanan
+    use ResponseApi;
+
+    // Semua Pesanan Delivery
     public function index()
     {
-         $orders = Order::with(['user', 'product'])
-        ->where('order_type', 'delivery')
-        ->latest()->get();
+        $orders = Order::with(['user', 'items.product'])
+            ->where('order_type', 'delivery')
+            ->latest()->get();
 
-    return response()->json($orders);
+        $orders = $orders->map(function ($order) {
+            return $this->formatOrder($order);
+        });
+
+        return $this->success($orders);
     }
 
-    // 2. Detail Pesanan
+    // Detail Pesanan
     public function show($id)
     {
-        $order = Order::with(['user', 'product'])->findOrFail($id);
-        return response()->json($order);
+        $order = Order::with(['user', 'items.product'])->findOrFail($id);
+        return $this->success($this->formatOrder($order));
     }
 
-    // 3. Ubah Status Pesanan
+    // Ubah Status Pesanan
     public function updateStatus(Request $request, $id)
     {
         $request->validate(['status' => 'required|string']);
@@ -34,99 +41,142 @@ class AdminOrderController extends Controller
         $order->status = $request->status;
         $order->save();
 
-        return response()->json(['message' => 'Status updated', 'order' => $order]);
+        return $this->success(['message' => 'Status updated', 'order' => $this->formatOrder($order)]);
     }
 
-    // 4. Soft Delete
+    // Soft Delete
     public function destroy($id)
     {
         $order = Order::findOrFail($id);
         $order->delete();
 
-        return response()->json(['message' => 'Order deleted (soft)']);
+        return $this->success(['message' => 'Order deleted (soft)']);
     }
 
-    // 5. Filter Berdasarkan Status
+    // Filter Berdasarkan Status
     public function filterByStatus($status)
     {
-         $orders = Order::with(['user', 'product'])
-        ->where('order_type', 'delivery')
-        ->where('status', $status)
-        ->get();
+        $orders = Order::with(['user', 'items.product'])
+            ->where('order_type', 'delivery')
+            ->where('status', $status)
+            ->get();
 
-    return response()->json($orders);
+        $orders = $orders->map(function ($order) {
+            return $this->formatOrder($order);
+        });
+
+        return $this->success($orders);
     }
 
-    // 6. Lihat Pesanan Selesai
+    // Lihat Pesanan Selesai
     public function completedOrders()
     {
-         $orders = Order::with(['user', 'product'])
-        ->where('order_type', 'delivery')
-        ->whereIn('status', ['completed', 'delivered'])
-        ->get();
+        $orders = Order::with(['user', 'items.product'])
+            ->where('order_type', 'delivery')
+            ->whereIn('status', ['completed', 'delivered'])
+            ->get();
 
-    return response()->json($orders);
+        $orders = $orders->map(function ($order) {
+            return $this->formatOrder($order);
+        });
+
+        return $this->success($orders);
     }
 
-    // 7. Restore Pesanan
+    // Restore Pesanan
     public function restore($id)
     {
         $order = Order::onlyTrashed()->findOrFail($id);
         $order->restore();
 
-        return response()->json(['message' => 'Order restored']);
+        return $this->success(['message' => 'Order restored']);
     }
 
-    // 8. Force Delete
+    // Force Delete
     public function forceDelete($id)
     {
         $order = Order::onlyTrashed()->findOrFail($id);
         $order->forceDelete();
 
-        return response()->json(['message' => 'Order permanently deleted']);
+        return $this->success(['message' => 'Order permanently deleted']);
     }
-    // 1. Pickup List (belum diproses)
-public function pickupList()
-{
-    $orders = Order::with(['user', 'product'])
-        ->where('order_type', 'pickup')
-        ->where('status', 'pending')
-        ->latest()->get();
 
-    return response()->json($orders);
-}
+    // Pickup List (belum diproses)
+    public function pickupList()
+    {
+        $orders = Order::with(['user', 'items.product'])
+            ->where('order_type', 'pickup')
+            ->where('status', 'pending')
+            ->latest()->get();
 
-// 2. In Progress Pickup
-public function pickupInProgress()
-{
-    $orders = Order::with(['user', 'product'])
-        ->where('order_type', 'pickup')
-        ->where('status', 'processing')
-        ->latest()->get();
+        $orders = $orders->map(function ($order) {
+            return $this->formatOrder($order);
+        });
 
-    return response()->json($orders);
-}
+        return $this->success($orders);
+    }
 
-// 3. Completed Pickup
-public function pickupCompleted()
-{
-    $orders = Order::with(['user', 'product'])
-        ->where('order_type', 'pickup')
-        ->whereIn('status', ['completed', 'delivered'])
-        ->latest()->get();
+    // In Progress Pickup
+    public function pickupInProgress()
+    {
+        $orders = Order::with(['user', 'items.product'])
+            ->where('order_type', 'pickup')
+            ->where('status', 'processing')
+            ->latest()->get();
 
-    return response()->json($orders);
-}
+        $orders = $orders->map(function ($order) {
+            return $this->formatOrder($order);
+        });
 
+        return $this->success($orders);
+    }
 
+    // Completed Pickup
+    public function pickupCompleted()
+    {
+        $orders = Order::with(['user', 'items.product'])
+            ->where('order_type', 'pickup')
+            ->whereIn('status', ['completed', 'delivered'])
+            ->latest()->get();
+
+        $orders = $orders->map(function ($order) {
+            return $this->formatOrder($order);
+        });
+
+        return $this->success($orders);
+    }
+
+    // Generate Invoice
     public function generateInvoice($id)
+    {
+        $order = Order::with('user', 'items.product')->findOrFail($id);
+        $pdf = Pdf::loadView('admin.invoice', compact('order'));
+
+        return $pdf->stream('invoice_order_' . $order->id . '.pdf');
+    }
+
+    // Helper untuk format order
+    private function formatOrder($order)
 {
-    $order = Order::with('user', 'items.product')->findOrFail($id); // pastikan relasi 'items' dan 'product' ada
-    $pdf = Pdf::loadView('admin.invoice', compact('order'));
-
-    return $pdf->stream('invoice_order_' . $order->id . '.pdf'); // untuk preview
-    // return $pdf->download('invoice_order_' . $order->id . '.pdf'); // untuk download langsung
+    return [
+        'id' => $order->id,
+        'customer_name' => $order->user ? $order->user->name : null,
+        'total_price' => (float) $order->total_price,
+        'status' => $order->status,
+        'order_type' => $order->order_type,
+        'created_at' => $order->created_at->format('Y-m-d H:i'),
+        'payment_method' => $order->payment_method, // <--- Tambahkan ini
+        'location' => $order->address, // <--- Tambahkan ini
+        'items' => $order->items->map(function ($item) {
+            return [
+                'id' => $item->id,
+                'product_id' => $item->product_id,
+                'product_name' => $item->product ? $item->product->name : null,
+                'product_image' => $item->product ? $item->product->image : null,
+                'price' => (float) $item->price,
+                'quantity' => (int) $item->quantity,
+            ];
+        }),
+    ];
 }
-
 }
-

@@ -3,15 +3,17 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Http\Traits\ResponseApi;
 
 class NotificationController extends Controller
 {
+    use ResponseApi;
     public function index(Request $request)
     {
         $user = $request->user();
         $notifications = $user->notifications()->orderBy('created_at', 'desc')->get();
 
-        return response()->json([
+        return $this->success([
             'notifications' => $notifications
         ]);
     }
@@ -29,14 +31,14 @@ class NotificationController extends Controller
             $notification = $user->notifications()->find($request->notification_id);
             if ($notification) {
                 $notification->markAsRead();
-                return response()->json(['message' => 'Notifikasi ditandai sebagai sudah dibaca']);
+                return $this->success(['message' => 'Notifikasi ditandai sebagai sudah dibaca']);
             } else {
-                return response()->json(['message' => 'Notifikasi tidak ditemukan'], 404);
+                return $this->success(['message' => 'Notifikasi tidak ditemukan'], 404);
             }
         } else {
             // Tandai semua notifikasi sebagai sudah dibaca
             $user->unreadNotifications->markAsRead();
-            return response()->json(['message' => 'Semua notifikasi ditandai sebagai sudah dibaca']);
+            return $this->success(['message' => 'Semua notifikasi ditandai sebagai sudah dibaca']);
         }
 
     }

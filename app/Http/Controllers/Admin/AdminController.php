@@ -6,9 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Product;
 use Illuminate\Http\Request;
+use App\Http\Traits\ResponseApi;
 
 class AdminController extends Controller
 {
+
+    use ResponseApi;
     public function dashboard()
     {
         $totalSales = Order::where('status', 'completed')->sum('total_price');
@@ -17,7 +20,7 @@ class AdminController extends Controller
         $completedOrders = Order::where('status', 'completed')->count();
         $totalProducts = Product::count();
 
-        return response()->json([
+        return $this->success([
             'total_sales' => $totalSales,
             'total_orders' => $totalOrders,
             'pending_orders' => $pendingOrders,
@@ -29,60 +32,83 @@ class AdminController extends Controller
 {
     $month = $request->input('month'); // format: 2025-06
 
-    $query = Order::where('status', 'completed');
+    $query = Order::with(['user', 'items.product'])->where('status', 'completed');
 
     if ($month) {
         $query->whereRaw("DATE_FORMAT(created_at, '%Y-%m') = ?", [$month]);
     }
 
-    $orders = $query
-        ->orderBy('created_at', 'desc')
-        ->get()
-        ->map(function ($order) {
-            return [
-                'orderName' => $order->customer_name ?? 'Customer',
-                'orderItems' => implode(', ', json_decode($order->items ?? '[]')),
-                'price' => $order->total_price,
-                'created_at' => $order->created_at->format('Y-m-d'),
-            ];
-        });
+    $orders = $query->orderBy('created_at', 'desc')->get();
 
-    $totalEarnings = $query->sum('total_price');
+    $ordersFormatted = $orders->map(function ($order) {
+        return [
+            'id' => $order->id,
+            'customer_name' => $order->user ? $order->user->name : 'Customer',
+            'total_price' => (float) $order->total_price,
+            'status' => $order->status,
+            'order_type' => $order->order_type,
+            'created_at' => $order->created_at->format('Y-m-d H:i'),
+            'items' => $order->items->map(function($item) {
+                return [
+                    'id' => $item->id,
+                    'product_id' => $item->product_id,
+                    'product_name' => $item->product ? $item->product->name : '',
+                    'product_image' => $item->product ? $item->product->image : null,
+                    'price' => (float) $item->price,
+                    'quantity' => (int) $item->quantity,
+                ];
+            }),
+        ];
+    });
 
-    return response()->json([
-        'total' => $totalEarnings,
-        'orders' => $orders,
+    $totalEarnings = $orders->sum('total_price');
+
+    return $this->success([
+        'total' => (float) $totalEarnings,
+        'orders' => $ordersFormatted,
     ]);
 }
-    public function orderHistory()
-{
-    // Ambil semua order dengan status completed atau delivered
-    $orders = Order::whereIn('status', ['completed', 'delivered'])
-        ->orderBy('created_at', 'desc')
-        ->get()
-        ->map(function ($order) {
-            return [
-                'order_name' => $order->customer_name ?? 'Customer',
-                'order_items' => implode(', ', json_decode($order->items ?? '[]')),
-                'price' => $order->total_price,
-                'created_at' => $order->created_at->format('Y-m-d H:i'),
-            ];
-        });
 
-    return response()->json([
-        'data' => $orders,
-    ]);
-}
-    public function earningsByMonth()
+public function orderHistory()
 {
-    $earnings = Order::selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month, SUM(total_price) as total")
-        ->where('status', 'completed')
-        ->groupBy('month')
-        ->orderBy('month', 'desc')
+    $orders = Order::with(['user', 'items.product'])
+        ->whereIn('status', ['completed', 'delivered'])
+        ->orderBy('created_at', 'desc')
         ->get();
 
-    return response()->json($earnings);
+    $ordersFormatted = $orders->map(function ($order) {
+        return [
+            'id' => $order->id,
+            'customer_name' => $order->user ? $order->user->name : 'Customer',
+            'total_price' => (float) $order->total_price,
+            'status' => $order->status,
+            'order_type' => $order->order_type,
+            'created_at' => $order->created_at->format('Y-m-d H:i'),
+            'items' => $order->items->map(function($item) {
+                return [
+                    'id' => $item->id,
+                    'product_id' => $item->product_id,
+                    'product_name' => $item->product ? $item->product->name : '',
+                    'product_image' => $item->product ? $item->product->image : null,
+                    'price' => (float) $item->price,
+                    'quantity' => (int) $item->quantity,
+                ];
+            }),
+        ];
+    });
 
+    return $this->success($ordersFormatted);
 }
+    public function earningsByMonth()
+    {
+        $earnings = Order::selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month, SUM(total_price) as total")
+            ->where('status', 'completed')
+            ->groupBy('month')
+            ->orderBy('month', 'desc')
+            ->get();
+
+        return $this->success($earnings);
+
+    }
 
 }

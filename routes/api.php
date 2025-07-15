@@ -22,6 +22,7 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/send-otp', [AuthController::class, 'sendOtp']);
 Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
 Route::post('/auth/google/token', [AuthController::class, 'loginWithGoogleToken']);
+Route::get('/promotions', [PromotionController::class, 'index']);
 
 // PROTECTED ROUTES
 Route::middleware('auth:sanctum')->group(function () {
@@ -41,6 +42,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/checkout', [OrderController::class, 'checkout']);
     Route::get('/orders', [OrderController::class, 'index']);
     Route::put('/orders/{id}/status', [OrderController::class, 'updateStatus']);
+    Route::get('/orders/{id}', [OrderController::class, 'show']);
 
     // PAYMENT ROUTES
     Route::post('/payment', [PaymentController::class, 'createPayment']);
@@ -48,6 +50,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
 // MIDTRANS CALLBACK
 Route::post('/midtrans/callback', [PaymentController::class, 'handleCallback']);
+Route::get('/payment/finish', [PaymentController::class, 'finish']);
 
 // SHIPPING
 Route::post('/calculate-ongkir', [ShippingController::class, 'calculateOngkir']);

@@ -7,9 +7,11 @@ use App\Models\Product;
 use Illuminate\Http\Request;
 use App\Http\Resources\CartResource;
 use Illuminate\Support\Facades\Log;
+use App\Http\Traits\ResponseApi;
 
 class CartController extends Controller
 {
+    use ResponseApi;
     public function index(Request $request)
     {
         $userId = $request->user()->id;
@@ -30,33 +32,44 @@ class CartController extends Controller
     }
 
     public function store(Request $request)
-    {
-        Log::info('Adding item to cart', [
-            'user_id' => $request->user()->id,
-            'request_data' => $request->all(),
-            'token' => $request->bearerToken()
-        ]);
+{
+    Log::info('Adding item to cart', [
+        'user_id' => $request->user()->id,
+        'request_data' => $request->all(),
+        'token' => $request->bearerToken()
+    ]);
 
-        $request->validate([
-            'product_id' => 'required|exists:products,id',
-            'quantity'   => 'required|integer|min:1',
-        ]);
+    $request->validate([
+        'product_id' => 'required|exists:products,id',
+        'quantity'   => 'required|integer|min:1',
+        'sugar'      => 'nullable|string',
+        'temperature'=> 'nullable|string',
+    ]);
 
-        $userId = $request->user()->id;
+    $userId = $request->user()->id;
 
-        $cart = Cart::updateOrCreate(
-            ['user_id' => $userId, 'product_id' => $request->product_id],
-            ['quantity' => $request->quantity]
-        );
+    $cart = Cart::updateOrCreate(
+        [
+            'user_id' => $userId,
+            'product_id' => $request->product_id,
+            'sugar' => $request->sugar,
+            'temperature' => $request->temperature,
+        ],
+        [
+            'quantity' => $request->quantity,
+            'sugar' => $request->sugar,
+            'temperature' => $request->temperature,
+        ]
+    );
 
-        return response()->json(['message' => 'Cart updated', 'data' => $cart]);
-    }
+    return $this->success(['message' => 'Cart updated', 'data' => $cart]);
+}
 
     public function destroy($id)
     {
         $cart = Cart::findOrFail($id);
         $cart->delete();
 
-        return response()->json(['message' => 'Item removed from cart']);
+        return $this->success(['message' => 'Item removed from cart']);
     }
 }

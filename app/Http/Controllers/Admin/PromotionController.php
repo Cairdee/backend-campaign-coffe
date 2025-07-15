@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Promotion;
 use Illuminate\Http\Request;
+use App\Http\Traits\ResponseApi;
 
 class PromotionController extends Controller
 {
+    use ResponseApi;
     public function index() {
-        return response()->json(Promotion::all());
+        return $this->success(Promotion::all());
     }
 
     public function store(Request $request) {
@@ -19,12 +21,12 @@ class PromotionController extends Controller
         ]);
 
         $promotion = Promotion::create($validated);
-        return response()->json($promotion, 201);
+        return $this->success($promotion, 201);
     }
 
     public function destroy($id) {
         Promotion::destroy($id);
-        return response()->json(['message' => 'Promotion deleted']);
+        return $this->success(['message' => 'Promotion deleted']);
     }
 }
 

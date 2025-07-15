@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use Illuminate\Http\Request;
+use App\Http\Traits\ResponseApi;
 
 class CategoryController extends Controller
 {
+    use ResponseApi;
     public function index() {
-        return response()->json(Category::all());
+        return $this->success(Category::all());
     }
 
     public function store(Request $request) {
@@ -18,18 +20,18 @@ class CategoryController extends Controller
         ]);
 
         $category = Category::create($validated);
-        return response()->json($category, 201);
+        return $this()->success($category, 201);
     }
 
     public function update(Request $request, $id) {
         $category = Category::findOrFail($id);
         $category->update($request->all());
-        return response()->json($category);
+        return $this->success($category);
     }
 
     public function destroy($id) {
         Category::destroy($id);
-        return response()->json(['message' => 'Category deleted']);
+        return $this->success(['message' => 'Category deleted']);
     }
 }
 

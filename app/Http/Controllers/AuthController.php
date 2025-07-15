@@ -12,9 +12,12 @@ use Illuminate\Support\Facades\Validator;
 use Laravel\Socialite\Facades\Socialite;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Http;
+use App\Http\Traits\ResponseApi;
 
 class AuthController extends Controller
 {
+    use ResponseApi;
+
     protected $otpService;
 
     public function __construct(OtpService $otpService)
@@ -32,7 +35,7 @@ class AuthController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            return $this->error(['errors' => $validator->errors()], 422);
         }
 
         $user = User::create([
@@ -42,7 +45,7 @@ class AuthController extends Controller
             'phone'    => $request->phone,
         ]);
 
-        return response()->json(['message' => 'User registered successfully'], 201);
+        return $this->success(['message' => 'User registered successfully'], 201);
     }
 
     public function login(Request $request)
@@ -53,29 +56,28 @@ class AuthController extends Controller
     ]);
 
     if ($validator->fails()) {
-        return response()->json(['errors' => $validator->errors()], 422);
+        return $this->error(['errors' => $validator->errors()], 422);
     }
 
     $user = User::where('email', $request->email)->first();
 
     // Tambahkan pengecekan akun Google
     if ($user && $user->google_id && !$user->password) {
-        return response()->json(['message' => 'Please use Google login'], 403);
+        return $this->error(['message' => 'Please use Google login'], 403);
     }
 
     if (!$user || !Hash::check($request->password, $user->password)) {
-        return response()->json(['message' => 'Invalid credentials'], 401);
+        return $this->error(['message' => 'Invalid credentials'], 401);
     }
 
     $token = $user->createToken('auth_token')->plainTextToken;
 
-    return response()->json([
+    return $this->success([
         'message' => 'Login successful',
         'token'   => $token,
         'user'    => $user,
     ]);
 }
-
 
     public function sendOtp(Request $request)
     {
@@ -85,7 +87,7 @@ class AuthController extends Controller
 
         $otp = $this->otpService->generateOtp($request->email);
 
-        return response()->json(['message' => 'OTP sent successfully', 'otp' => $otp]);
+        return $this->success(['message' => 'OTP sent successfully', 'otp' => $otp]);
     }
 
     public function verifyOtp(Request $request)
@@ -98,17 +100,17 @@ class AuthController extends Controller
         $isValid = $this->otpService->verifyOtp($request->email, $request->otp);
 
         if (!$isValid) {
-            return response()->json(['message' => 'Invalid or expired OTP'], 422);
+            return $this->success(['message' => 'Invalid or expired OTP'], 422);
         }
 
-        return response()->json(['message' => 'OTP verified successfully']);
+        return $this->success(['message' => 'OTP verified successfully']);
     }
 
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
 
-        return response()->json(['message' => 'Logged out successfully']);
+        return $this->success(['message' => 'Logged out successfully']);
     }
 
     public function redirectToGoogle()
@@ -126,6 +128,7 @@ class AuthController extends Controller
         ], 500);
     }
 }
+
     public function handleGoogleCallback()
     {
         try {
@@ -146,7 +149,7 @@ class AuthController extends Controller
 
             $token = $user->createToken('auth_token')->plainTextToken;
 
-            return response()->json([
+            return $this->success([
                 'message' => 'Google login successful',
                 'token'   => $token,
                 'user'    => $user,
@@ -157,9 +160,10 @@ class AuthController extends Controller
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            return response()->json(['message' => 'Google authentication failed', 'error' => $e->getMessage()], 500);
+            return $this->success(['message' => 'Google authentication failed', 'error' => $e->getMessage()], 500);
         }
     }
+
 public function loginWithGoogleToken(Request $request)
 {
     $request->validate([
@@ -191,7 +195,7 @@ public function loginWithGoogleToken(Request $request)
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
-        return response()->json([
+        return $this->success([
             'message' => 'Google login successful',
             'token'   => $token,
             'user'    => $user,
@@ -202,8 +206,7 @@ public function loginWithGoogleToken(Request $request)
             'message' => $e->getMessage(),
             'trace' => $e->getTraceAsString()
         ]);
-        return response()->json(['message' => 'Google authentication failed', 'error' => $e->getMessage()], 500);
+        return $this->success(['message' => 'Google authentication failed', 'error' => $e->getMessage()], 500);
     }
 }
-
 }

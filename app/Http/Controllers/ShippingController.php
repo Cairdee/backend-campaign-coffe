@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Http\Traits\ResponseApi;
 
 class ShippingController extends Controller
 {
+    use ResponseApi;
     // Koordinat tetap dari coffee shop
     private $shopLat = -6.753569079156668;
     private $shopLng = 110.84238253895886;
@@ -30,14 +32,14 @@ class ShippingController extends Controller
         } elseif ($distance <= 10) {
             $ongkir = 10000;
         } else {
-            return response()->json([
+            return $this->success([
                 'success' => false,
                 'message' => 'Diluar jangkauan pengiriman. Maksimal 10KM.',
                 'distance_km' => round($distance, 2)
             ], 400);
         }
 
-        return response()->json([
+        return $this->success([
             'success' => true,
             'ongkir' => $ongkir,
             'distance_km' => round($distance, 2)
