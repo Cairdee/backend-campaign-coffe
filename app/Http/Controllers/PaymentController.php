@@ -59,42 +59,47 @@ class PaymentController extends Controller
 
     // 2. Handle Callback
     public function handleCallback(Request $request)
-    {
+{
+    // Ambil payload dengan cara paling aman
+    $raw = $request->getContent() ?: file_get_contents('php://input');
+    $payload = json_decode($raw);
 
-        Log::info('Midtrans callback hit', ['payload' => $request->getContent()]);
+    Log::info('Midtrans callback hit', ['raw' => $raw, 'payload' => $payload]);
 
-        $payload = json_decode($request->getContent());
-
-        $orderIdParts = explode('-', $payload->order_id);
-        $orderId = $orderIdParts[1] ?? null;
-
-        if (!$orderId) {
-            return $this->success(['message' => 'Invalid order ID'], 400);
-        }
-
-        $order = Order::find($orderId);
-        if (!$order) {
-            return $this->success(['message' => 'Order not found'], 404);
-        }
-
-        if (in_array($payload->transaction_status, ['capture', 'settlement'])) {
-            $order->status = 'paid';
-        } elseif (in_array($payload->transaction_status, ['deny', 'cancel', 'expire'])) {
-            $order->status = 'cancelled';
-        } elseif ($payload->transaction_status === 'pending') {
-            $order->status = 'pending';
-        }
-
-        // Update payment_method dari Midtrans
-        if (isset($payload->payment_type)) {
-            $order->payment_method = $payload->payment_type; // contoh: 'gopay', 'qris', 'bank_transfer', dll
-        }
-
-        $order->save();
-
-        Log::info('Midtrans callback received', ['payload' => $payload]);
-
-        return $this->success(['message' => 'Callback processed']);
+    if (!$payload || !isset($payload->order_id)) {
+        Log::error('Midtrans callback: payload/order_id not found', ['payload' => $payload, 'raw' => $raw]);
+        return $this->success(['message' => 'Invalid payload'], 400);
     }
-    
+
+    $orderIdParts = explode('-', $payload->order_id);
+    $orderId = $orderIdParts[1] ?? null;
+
+    if (!$orderId) {
+        return $this->success(['message' => 'Invalid order ID'], 400);
+    }
+
+    $order = Order::find($orderId);
+    if (!$order) {
+        return $this->success(['message' => 'Order not found'], 404);
+    }
+
+    if (in_array($payload->transaction_status, ['capture', 'settlement'])) {
+        $order->status = 'paid';
+    } elseif (in_array($payload->transaction_status, ['deny', 'cancel', 'expire'])) {
+        $order->status = 'cancelled';
+    } elseif ($payload->transaction_status === 'pending') {
+        $order->status = 'pending';
+    }
+
+    if (isset($payload->payment_type)) {
+        $order->payment_method = $payload->payment_type;
+    }
+
+    $order->save();
+
+    Log::info('Midtrans callback received', ['order' => $order]);
+
+    return $this->success(['message' => 'Callback processed']);
+}
+
 }

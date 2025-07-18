@@ -23,6 +23,8 @@ Route::post('/send-otp', [AuthController::class, 'sendOtp']);
 Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
 Route::post('/auth/google/token', [AuthController::class, 'loginWithGoogleToken']);
 Route::get('/promotions', [PromotionController::class, 'index']);
+Route::get('/products', [ProductController::class, 'index']);
+Route::get('/products/{id}', [ProductController::class,'show']);
 
 // PROTECTED ROUTES
 Route::middleware('auth:sanctum')->group(function () {
@@ -54,6 +56,8 @@ Route::get('/payment/finish', [PaymentController::class, 'finish']);
 
 // SHIPPING
 Route::post('/calculate-ongkir', [ShippingController::class, 'calculateOngkir']);
+
+
 
 // ADMIN
 Route::prefix('admin')->middleware('auth:sanctum')->group(function () {
@@ -87,4 +91,3 @@ Route::prefix('admin')->middleware('auth:sanctum')->group(function () {
 
 //NOTIFICATIONS
 Route::middleware('auth:sanctum')->get('/notifications', [NotificationController::class, 'index']);
-
